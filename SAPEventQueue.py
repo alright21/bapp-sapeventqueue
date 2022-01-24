@@ -3,6 +3,7 @@ from burp import IBurpExtender
 from burp import IMessageEditorTabFactory
 from burp import IMessageEditorTab
 from burp import IParameter
+import re
 
 import xml.dom.minidom
 
@@ -107,6 +108,27 @@ class SAPEvent(object):
     Keyvalue_Pair    = '~E005'
     Collection_Entry = '~E006'
 
+    adict = {
+        '~0040': '@',
+        '~007B':'{',
+        '~0022':'\'',   # this should be replaced with ", but Burp html encode this character as &quot;, so it is better to endode it as ' in order to have a better decoding
+        '~003A':':',
+        '~002C':',',
+        '~007D':'}',
+        '~002F':'/',
+        '~003B':';',
+        '~003D':'='
+    }
+
+    # credits to https://www.oreilly.com/library/view/python-cookbook/0596001673/ch03s15.html
+    def multiple_replace(self, text):
+        # Create a regular expression from all of the dictionary keys
+        regex = re.compile("|".join(map(re.escape, self.adict.keys(  ))))
+
+        # For each match, look up the corresponding value in the dictionary
+        return regex.sub(lambda match: self.adict[match.group(0)], text)
+
+
     def __init__(self, content):
         print("[SAPEvent] [init] {}".format(content))
         self.raw_message = self._parse_content(content)
@@ -141,7 +163,7 @@ class SAPEvent(object):
                     if len(kvx) == 2:
                         output += '<keyvalue>'
                         output += '<key>{}</key>'.format(kvx[0])
-                        output += '<value>{}</value>'.format(kvx[1])
+                        output += '<value>{}</value>'.format(self.multiple_replace(kvx[1]))
                         output += '</keyvalue>'
 
                     r = r.replace(SAPEvent.Keyvalue,"=")
